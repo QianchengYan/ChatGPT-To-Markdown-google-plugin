@@ -20,11 +20,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "toggleExportButton") {
         shouldShowExportButton = request.show;
         toggleExportButtonVisibility();
-        sendResponse({success: true});
+        sendResponse({ success: true });
     }
     // 新增：查询当前按钮状态
     if (request.action === "getButtonStatus") {
-        sendResponse({show: shouldShowExportButton});
+        sendResponse({ show: shouldShowExportButton });
     }
     return true; // 保持消息通道开放，以便异步响应
 });
@@ -33,11 +33,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 window.onload = () => {
     // 默认创建按钮
     createExportButton();
+    createCopyLastButton();
 
     // 定时检查并重新插入按钮（如果应该显示）
     setInterval(() => {
         if (shouldShowExportButton && !document.getElementById('export-chat')) {
             createExportButton();
+            createCopyLastButton();
         } else if (!shouldShowExportButton && document.getElementById('export-chat')) {
             document.getElementById('export-chat').remove();
         }
@@ -47,16 +49,19 @@ window.onload = () => {
 // 切换导出按钮的可见性
 function toggleExportButtonVisibility() {
     const existingButton = document.getElementById('export-chat');
+    const copyLastButton = document.getElementById('copy-last-answer');
 
     if (shouldShowExportButton) {
         // 如果应该显示按钮但不存在，则创建它
         if (!existingButton) {
             createExportButton();
+            createCopyLastButton();
         }
     } else {
         // 如果不应该显示按钮但存在，则移除它
         if (existingButton) {
             existingButton.remove();
+            copyLastButton.remove();
         }
     }
 }
@@ -268,6 +273,34 @@ function createExportButton() {
     exportButton.addEventListener('click', exportChatAsMarkdown);
 }
 
+
+// 创建复制最后一个回答按钮
+function createCopyLastButton() {
+    const copyLastButton = document.createElement('button');
+    copyLastButton.textContent = 'Copy Last Answer';
+    copyLastButton.id = 'copy-last-answer';
+    const styles = {
+        position: 'fixed',
+        height: '36px',
+        top: '10px',
+        right: '20%',
+        zIndex: '10000',
+        padding: '10px',
+        backgroundColor: '#af534cff',
+        color: 'white',
+        border: 'none',
+        borderRadius: '5px',
+        cursor: 'pointer',
+        textAlign: 'center',
+        lineHeight: '16px'
+    };
+    document.body.appendChild(copyLastButton);
+    Object.assign(copyLastButton.style, styles);
+    copyLastButton.addEventListener('click', copyLastAnswer);
+
+
+}
+
 // 导出聊天记录为 Markdown 格式
 function exportChatAsMarkdown() {
     let markdownContent = "";
@@ -294,9 +327,87 @@ function exportChatAsMarkdown() {
     }
 }
 
+// 复制最后一个回答为 Markdown 格式
+function copyLastAnswer() {
+    let allElements = getConversationElements();
+    if (allElements.length < 2) {
+        console.log("未找到对话内容");
+        return;
+    }
+    let lastAnswerHtml = allElements[allElements.length - 1].innerHTML.trim();
+    let markdownContent = htmlToMarkdown(lastAnswerHtml);
+    markdownContent = markdownContent.replace(/&amp;/g, '&');
+    navigator.clipboard.writeText(markdownContent)
+        .then(() => {
+            console.log("最后一个回答已复制为 Markdown 格式");
+            // 快闪窗 显示复制成功
+            const flash = document.createElement('div');
+            flash.textContent = '最后一个回答已复制为 Markdown 格式';
+            Object.assign(flash.style, {
+                position: 'fixed',
+                bottom: '20px',
+                right: '20px',
+                backgroundColor: '#28A745',
+                color: '#fff',
+                padding: '10px 20px',
+                borderRadius: '5px',
+                zIndex: '10000',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                opacity: '0',
+                transition: 'opacity 0.5s'
+            });
+            document.body.appendChild(flash);
+            setTimeout(() => {
+                flash.style.opacity = '1';
+            }, 100);
+            setTimeout(() => {
+                flash.style.opacity = '0';
+                setTimeout(() => {
+                    document.body.removeChild(flash);
+                }, 500);
+            }, 2000);
+
+        })
+        .catch(
+            err => {
+                console.error('复制失败', err);
+                // 快闪窗 显示复制失败
+                const flash = document.createElement('div');
+                flash.textContent = '复制失败，请重试';
+                Object.assign(flash.style, {
+                    position: 'fixed',
+                    bottom: '20px',
+                    right: '20px',
+                    backgroundColor: '#DC3545',
+                    color: '#fff',
+                    padding: '10px 20px',
+                    borderRadius: '5px',
+                    zIndex: '10000',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                    opacity: '0',
+                    transition: 'opacity 0.5s'
+                });
+                document.body.appendChild(flash);
+                setTimeout(() => {
+                    flash.style.opacity = '1';
+                }, 100);
+                setTimeout(() => {
+                    flash.style.opacity = '0';
+                    setTimeout(() => {
+                        document.body.removeChild(flash);
+                    }
+                        , 500);
+                }, 2000);
+                document.body.removeChild(flash);
+
+
+            });
+}
+
+
 // 下载函数
 function download(data, filename, type) {
-    var file = new Blob([data], {type: type});
+    var file = new Blob([data], { type: type });
     if (window.navigator.msSaveOrOpenBlob) {
         window.navigator.msSaveOrOpenBlob(file, filename);
     } else {
