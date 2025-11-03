@@ -321,7 +321,12 @@ function exportChatAsMarkdown() {
     markdownContent = markdownContent.replace(/&amp;/g, '&');
 
     if (markdownContent) {
-        download(markdownContent, 'chat-export.md', 'text/markdown');
+        // 生成格式为 YYYY-MM-DD_HH-MM-SS 的时间戳，并追加到文件名中
+        const now = new Date();
+        const pad = (n) => n.toString().padStart(2, '0');
+        const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+        const filename = `chat-export-${timestamp}.md`;
+        download(markdownContent, filename, 'text/markdown');
     } else {
         console.log("未找到对话内容");
     }
